@@ -50,11 +50,25 @@ ycurve_slope = calculate_yield_curve_slope(short_term_interest, long_term_intere
 reer_data = process_reer_data('data/dollar_reer.xls')
 us_cpi_data = process_cpi_data('data/cpi.csv')
 
+# Process Unemployment Rate data
+unemp_data = pd.read_csv('data/unemp.csv', sep=';')[['Period', 'Value']]
+unemp_data = unemp_data[:-1]
+unemp_data = (unemp_data.rename(columns={'Period': 'Date', 'Value': 'Unemployment Rate'})
+                        .assign(Date=lambda df: pd.to_datetime(df['Date']),
+                                Unemployment_Rate=lambda df: df['Unemployment Rate'].astype(float))
+                        .sort_values('Date')
+                        .assign(Unemployment_Rate_Change=lambda df: df['Unemployment_Rate'].pct_change())
+                        .dropna()
+                        .pipe(get_month_end_data, 'Date')
+                        .rename(columns={'Unemployment_Rate_Change': 'Unemployment Rate Change'})
+                        [['Date', 'Unemployment Rate Change']]) 
+
 # Merge all dataframes on the Date column
 macro_df = (short_term_interest.merge(ycurve_slope, on='Date', how='left')
                                .merge(reer_data, on='Date', how='left')
                                .merge(oil_price[['Date', 'Change Oil Price']], on='Date', how='left')
                                .merge(us_cpi_data, on='Date', how='left')
+                               .merge(unemp_data, on='Date', how='left')
                                .dropna()
                                .rename(columns={'Date': 'Year-Month'}))
 
