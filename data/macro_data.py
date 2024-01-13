@@ -19,11 +19,20 @@ def download_and_process_financial_data(ticker, start_date, end_date, column_nam
     data = yf.download(ticker, start=start_date, end=end_date)['Close'].reset_index()
     data = get_month_end_data(data)
     data = data.rename(columns={'Close': column_name})
+
+    if column_name == '3 Month T-Bill Rate':
+        data[column_name] = data[column_name].diff()
+
     return data
 
 def calculate_yield_curve_slope(tbill_3_month, tbill_10_yr):
     ycurve_slope = tbill_10_yr['10 Year T-Bill Rate'] - tbill_3_month['3 Month T-Bill Rate']
-    return pd.DataFrame({'Date': tbill_3_month['Date'], 'Yield Curve Slope': ycurve_slope})
+
+    yield_curve_df = pd.DataFrame({'Date': tbill_3_month['Date'], 'Yield Curve Slope': ycurve_slope})
+
+    yield_curve_df['Yield Curve Slope'] = yield_curve_df['Yield Curve Slope'].diff()
+
+    return yield_curve_df
 
 def process_reer_data(filepath):
     reer_data = pd.read_excel(filepath, header=10)
@@ -35,7 +44,9 @@ def process_cpi_data(filepath):
     cpi_data = pd.read_csv(filepath)
     cpi_data = cpi_data[cpi_data['LOCATION'] == 'USA']
     cpi_data = cpi_data.rename(columns={'TIME': 'Date', 'Value': 'CPI'})
-    return get_month_end_data(cpi_data[['Date', 'CPI']], 'Date')
+    cpi_data = get_month_end_data(cpi_data[['Date', 'CPI']], 'Date')
+    cpi_data['CPI'] = cpi_data['CPI'].diff()
+    return cpi_data
 
 # Download and process financial data
 short_term_interest = download_and_process_financial_data('^IRX', '2005-12-01', '2023-08-01', '3 Month T-Bill Rate')
